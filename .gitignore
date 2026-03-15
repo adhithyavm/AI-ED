@@ -1,0 +1,9 @@
+# Root
+.env
+node_modules/
+dist/
+build_log.txt
+__pycache__/
+*.pyc
+error.log
+uploads/

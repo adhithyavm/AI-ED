@@ -1,42 +1,34 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-export const synthesizeObservation = async (rawData: string) => {
-  const apiKey = import.meta.env.VITE_GEMINI_KEY;
-  if (!apiKey) return null;
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-
-  /**
-   * FIX: In the 2026 API, 'gemini-1.5-flash' is the stable production name.
-   * If you still get a 404, try changing this string to 'gemini-pro' 
-   * as a universal fallback.
-   */
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-  const prompt = `
-    Analyze this ECE data: "${rawData}"
-    Respond ONLY with JSON:
-    {
-      "teacher_summary": "Technical milestone note",
-      "parent_summary": "Encouraging home activity",
-      "admin_summary": "Risk assessment",
-      "priority": "low"
-    }
-  `;
+export const synthesizeObservation = async (studentName: string, file: File) => {
+  const formData = new FormData();
+  formData.append('student_name', studentName);
+  formData.append('file', file);
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const cleanJson = text.replace(/```json|```/g, "").trim();
-    return JSON.parse(cleanJson);
+    const response = await fetch('http://localhost:8000/process-rag', {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error("RAG processing failed");
+    return await response.json();
   } catch (error) {
-    console.error("AI Error:", error);
-    // CRITICAL: Return mock data so your Dashboard works during the demo
-    return {
-      teacher_summary: "Observation logged. Focus on social-emotional interaction.",
-      parent_summary: "Great day! Encourage sharing at home tonight.",
-      admin_summary: "No immediate resource intervention required.",
-      priority: "medium"
-    };
+    console.error("Backend Connection Error:", error);
+    return null;
+  }
+};
+
+export const askChatbot = async (studentName: string, message: string) => {
+  try {
+    const response = await fetch('http://localhost:8000/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_name: studentName, message: message }),
+    });
+
+    if (!response.ok) throw new Error("Chat bot processing failed");
+    return await response.json();
+  } catch (error) {
+    console.error("Backend Connection Error:", error);
+    return { reply: "Connection Error", blocked: true };
   }
 };

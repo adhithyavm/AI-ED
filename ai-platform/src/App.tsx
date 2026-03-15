@@ -1,8 +1,9 @@
-import React from 'react';
+
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { LayoutDashboard, PlusCircle, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import Capture from './pages/Capture';
 import Dashboard from './pages/Dashboard';
+import ChatBot from './pages/ChatBot';
 
 export default function App() {
   return (
@@ -18,12 +19,14 @@ export default function App() {
           <div className="flex gap-10">
             <Link to="/" className="text-slate-500 hover:text-indigo-600 font-bold text-sm uppercase tracking-widest transition-all">Capture</Link>
             <Link to="/dashboard" className="text-slate-500 hover:text-indigo-600 font-bold text-sm uppercase tracking-widest transition-all">Dashboard</Link>
+            <Link to="/chat" className="text-slate-500 hover:text-indigo-600 font-bold text-sm uppercase tracking-widest transition-all">Secure Chat</Link>
           </div>
         </nav>
         <main className="max-w-6xl mx-auto py-16 px-6">
           <Routes>
             <Route path="/" element={<Capture />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/chat" element={<ChatBot />} />
           </Routes>
         </main>
       </div>
