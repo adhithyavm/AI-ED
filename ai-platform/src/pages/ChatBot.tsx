@@ -1,192 +1,167 @@
 import { useState } from 'react';
-import { Bot, User, Send, ShieldAlert, Sparkles, AlertTriangle } from 'lucide-react';
+import { Send, ShieldAlert, Sparkles } from 'lucide-react';
 import { askChatbot } from '../services/aiServices';
 
-interface Message {
+// message type definition
+interface Msg {
   role: 'user' | 'bot' | 'system';
   content: string;
 }
 
 export default function ChatBot() {
-  const [studentName, setStudentName] = useState('');
-  const [sessionActive, setSessionActive] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [targetLang, setTargetLang] = useState('English');
+  const [stdName, setStdName] = useState('');
+  const [isActive, setIsActive] = useState(false);
+  const [chatLog, setChatLog] = useState<Msg[]>([]);
+  const [query, setQuery] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [lang, setLang] = useState('English');
 
-  const languages = ['English', 'Tamil', 'Hindi', 'Spanish', 'French', 'German'];
+  const availLangs = ['English', 'Tamil', 'Hindi', 'Spanish', 'French', 'German'];
 
-  const startSession = () => {
-    if (!studentName.trim()) return;
-    setSessionActive(true);
-    setMessages([
-      { role: 'system', content: `GuardRAIL Security Active. End-to-end monitoring enabled for student: ${studentName}. Searching secure educational vault...` },
-      { role: 'bot', content: `Hello! I am your AI Educational Assistant. You can ask me any questions about ${studentName}'s educational progress, observations, and insights.` }
+  // starts the chat session
+  function initSession() {
+    if (!stdName.trim()) return;
+    setIsActive(true);
+    setChatLog([
+      { role: 'system', content: `Secure session started for: ${stdName}. Fetching relevant data...` },
+      { role: 'bot', content: `Hi! I'm here to help with questions about ${stdName}'s progress. What would you like to know?` }
     ]);
-  };
+  }
 
-  const handleSend = async () => {
-    if (!input.trim() || !studentName.trim()) return;
+  // sends message to backend
+  async function sendMessage() {
+    if (!query.trim() || !stdName.trim()) return;
     
-    const userMsg = input.trim();
-    setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
-    setLoading(true);
+    const userMsg = query.trim();
+    setQuery('');
+    setChatLog(prev => [...prev, { role: 'user', content: userMsg }]);
+    setIsTyping(true);
 
     try {
-      let result = await askChatbot(studentName, userMsg);
+      const resp = await askChatbot(stdName, userMsg);
       
-      // Handle the GuardRAIL blocked response format explicitly
-      if (result.blocked) {
-        setMessages((prev) => [...prev, { role: 'bot', content: `[GuardRAIL Alert]: ${result.reply}` }]);
+      if (resp.blocked) {
+        setChatLog(prev => [...prev, { role: 'bot', content: `[Safety Filter]: ${resp.reply}` }]);
       } else {
-        let finalReply = result.reply;
+        let text = resp.reply;
         
-        // If target language is not English, translate the reply
-        if (targetLang !== 'English') {
+        // auto-translate if needed
+        if (lang !== 'English') {
           try {
-            const transResponse = await fetch('http://localhost:8000/translate', {
+            const apiResp = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/translate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: finalReply, target_lang: targetLang }),
+              body: JSON.stringify({ text, target_lang: lang }),
             });
-            const transData = await transResponse.json();
-            finalReply = transData.translated_text;
-          } catch (transErr) {
-            console.error("Translation error:", transErr);
+            const data = await apiResp.json();
+            text = data.translated_text;
+          } catch (e) {
+            console.log("translation failed", e);
           }
         }
         
-        setMessages((prev) => [...prev, { role: 'bot', content: finalReply }]);
+        setChatLog(prev => [...prev, { role: 'bot', content: text }]);
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { role: 'bot', content: "Network error trying to securely reach the server." }]);
+      setChatLog(prev => [...prev, { role: 'bot', content: "Connection error. Please check if the server is running." }]);
+    } finally {
+      setIsTyping(false);
     }
-    setLoading(false);
-  };
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <header className="flex justify-between items-end mb-8">
-        <div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Security-First Chat</h1>
-          <p className="text-slate-500 font-medium">Safe, context-aware RAG retrieval protected by strict LLM GuardRAILs.</p>
-        </div>
-      </header>
+    <div className="max-w-4xl mx-auto py-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">StudyMate Chat</h1>
+        <p className="text-gray-500">Secure AI insights for personalized learning.</p>
+      </div>
 
-      {!sessionActive ? (
-        <div className="bg-white p-12 rounded-[3rem] shadow-2xl shadow-indigo-100 border border-slate-100 flex flex-col items-center">
-           <div className="bg-indigo-50 p-6 rounded-full mb-6 text-indigo-500">
-             <ShieldAlert size={48} />
-           </div>
-           <h2 className="text-2xl font-bold text-slate-800 mb-2">Initialize Secure Session</h2>
-           <p className="text-slate-500 mb-8 max-w-sm text-center">To authorize access to the educational vault, please enter the verified student's name.</p>
-           
-           <div className="flex gap-4 w-full max-w-md">
-             <input 
-               type="text" 
-               placeholder="Enter strictly student's full name" 
-               value={studentName}
-               onChange={(e) => setStudentName(e.target.value)}
-               className="flex-grow p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl outline-none font-medium"
-               onKeyDown={(e) => e.key === 'Enter' && startSession()}
-             />
-             <button 
-               onClick={startSession}
-               className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-200"
-             >
-               Verify
-             </button>
-           </div>
+      {!isActive ? (
+        <div className="bg-white p-10 rounded-3xl shadow-xl border border-gray-100 flex flex-col items-center">
+            <div className="bg-blue-50 p-5 rounded-full mb-4 text-blue-500">
+              <ShieldAlert size={40} />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-800">Start a Conversation</h2>
+            <p className="text-gray-500 mb-6 text-center">Enter the student's name to pull up their records.</p>
+            
+            <div className="flex gap-3 w-full max-w-sm">
+              <input 
+                type="text" 
+                placeholder="Student Name..." 
+                value={stdName}
+                onChange={(e) => setStdName(e.target.value)}
+                className="flex-grow p-3 bg-gray-50 border border-gray-200 focus:border-blue-500 rounded-xl outline-none"
+                onKeyDown={(e) => e.key === 'Enter' && initSession()}
+              />
+              <button 
+                onClick={initSession}
+                className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition"
+              >
+                Access
+              </button>
+            </div>
         </div>
       ) : (
-        <div className="bg-white flex flex-col h-[600px] rounded-[3rem] shadow-2xl shadow-slate-200 border border-slate-100 overflow-hidden">
+        <div className="bg-white flex flex-col h-[550px] rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
           
-          <div className="flex items-center justify-between bg-slate-900 text-white px-8 py-5">
-            <div className="flex items-center gap-4">
-              <Sparkles size={20} className="text-emerald-400" />
-              <div>
-                <h3 className="font-bold text-sm tracking-widest uppercase">Target: {studentName}</h3>
-                <p className="text-xs text-slate-400 flex items-center gap-1"><ShieldAlert size={12}/> GuardRAIL Active</p>
-              </div>
+          <div className="bg-gray-900 text-white px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Sparkles size={18} className="text-yellow-400" />
+              <span className="font-medium">Student: {stdName}</span>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Language:</span>
-                <select 
-                  value={targetLang} 
-                  onChange={(e) => setTargetLang(e.target.value)}
-                  className="text-xs font-bold text-slate-300 bg-transparent outline-none cursor-pointer"
-                >
-                  {languages.map(l => <option key={l} value={l} className="bg-slate-900">{l}</option>)}
-                </select>
-              </div>
-              <button 
-                onClick={() => setSessionActive(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold transition"
+            <div className="flex items-center gap-3 text-sm">
+              <select 
+                value={lang} 
+                onChange={(e) => setLang(e.target.value)}
+                className="bg-gray-800 px-2 py-1 rounded border border-gray-700 outline-none"
               >
-                Close Session
+                {availLangs.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+              <button 
+                onClick={() => setIsActive(false)}
+                className="text-gray-400 hover:text-white transition"
+              >
+                Exit
               </button>
             </div>
           </div>
 
-          <div className="flex-grow p-8 overflow-y-auto space-y-6 bg-slate-50">
-            {messages.map((m, idx) => (
+          <div className="flex-grow p-6 overflow-y-auto space-y-4 bg-gray-50">
+            {chatLog.map((m, i) => (
               m.role === 'system' ? (
-                <div key={idx} className="flex justify-center my-4">
-                  <span className="bg-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-full flex items-center gap-2">
-                    <ShieldAlert size={14} /> {m.content}
-                  </span>
+                <div key={i} className="text-center">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{m.content}</span>
                 </div>
               ) : (
-                <div key={idx} className={`flex w-full ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex gap-4 max-w-[80%] ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    
-                    <div className={`w-10 h-10 flex-shrink-0 rounded-2xl flex items-center justify-center text-white ${m.role === 'user' ? 'bg-indigo-400' : m.content.includes('[GuardRAIL Alert]') ? 'bg-rose-500' : 'bg-slate-800'}`}>
-                      {m.role === 'user' ? <User size={18} /> : m.content.includes('[GuardRAIL Alert]') ? <AlertTriangle size={18} /> : <Bot size={18} />}
-                    </div>
-
-                    <div className={`p-5 rounded-3xl ${m.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-sm' : m.content.includes('[GuardRAIL Alert]') ? 'bg-rose-50 border border-rose-100 text-rose-800 rounded-tl-sm font-medium' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'}`}>
-                      <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{m.content}</p>
-                    </div>
-
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] p-4 rounded-2xl ${m.role === 'user' ? 'bg-blue-600 text-white' : m.content.includes('[Safety Filter]') ? 'bg-red-50 text-red-700 border border-red-100' : 'bg-white border border-gray-200 text-gray-800'}`}>
+                    <p className="text-sm leading-relaxed">{m.content}</p>
                   </div>
                 </div>
               )
             ))}
-            {loading && (
-              <div className="flex justify-start w-full">
-                <div className="flex gap-4 items-center">
-                  <div className="w-10 h-10 flex-shrink-0 bg-slate-200 rounded-2xl animate-pulse"></div>
-                  <div className="bg-slate-200 p-4 rounded-full w-24 animate-pulse"></div>
-                </div>
-              </div>
-            )}
+            {isTyping && <div className="text-xs text-gray-400 italic">Bot is thinking...</div>}
           </div>
 
-          <div className="p-6 bg-white border-t border-slate-100">
-            <div className="flex gap-4">
+          <div className="p-4 bg-white border-t border-gray-100">
+            <div className="flex gap-2">
               <input
                 type="text"
-                placeholder={`Ask educational questions about ${studentName}...`}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                className="flex-grow p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 focus:bg-white rounded-2xl outline-none font-medium text-slate-700 transition"
+                placeholder="Ask about performance or goals..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                className="flex-grow p-3 bg-gray-50 rounded-xl outline-none border border-transparent focus:border-blue-500"
               />
               <button 
-                onClick={handleSend}
-                disabled={loading || !input.trim()}
-                className="bg-indigo-600 text-white w-14 h-14 flex flex-shrink-0 items-center justify-center rounded-2xl hover:bg-indigo-700 transition disabled:opacity-50"
+                onClick={sendMessage}
+                disabled={isTyping || !query.trim()}
+                className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 disabled:opacity-50"
               >
-                <Send size={20} className={input.trim() ? "translate-x-0.5" : ""} />
+                <Send size={20} />
               </button>
             </div>
-            <p className="text-center text-xs font-bold text-slate-400 mt-4 uppercase tracking-wider">
-              Protected by LLM GuardRAIL • Data is confidentially monitored
-            </p>
           </div>
 
         </div>

@@ -1,29 +1,34 @@
 import os
-import fitz # PyMuPDF
+import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from dotenv import load_dotenv
 
+# load the env vars
 load_dotenv()
 
-# Config (Ensure GEMINI_API_KEY is in backend/.env)
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-MODEL_ID = "gemini-2.5-flash"
+# config settings
+API_KEY = os.getenv("GEMINI_API_KEY")
+ACTIVE_MODEL = "gemini-1.5-flash"  # updated version for stability
 
-def extract_text(pdf_path: str) -> str:
-    pages = []
-    with fitz.open(pdf_path) as doc:
-        for page in doc:
-            pages.append(page.get_text())
-    return "\n".join(pages)
+def get_pdf_text(path):
+    """ extracts all text from a given pdf file path """
+    content = []
+    with fitz.open(path) as pdf:
+        for pg in pdf:
+            content.append(pg.get_text())
+    return "\n".join(content)
 
-def build_vector_store(pdf_files: list):
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    texts = []
-    for path in pdf_files:
-        raw = extract_text(path)
-        texts.extend(splitter.split_text(raw))
+def create_vs(files):
+    """ builds the faiss vector store from a list of pdfs """
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
+    all_chunks = []
     
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    return FAISS.from_texts(texts, embedding=embeddings)
+    for f in files:
+        raw_data = get_pdf_text(f)
+        all_chunks.extend(text_splitter.split_text(raw_data))
+    
+    # using miniLM for fast embeddings on CPU
+    embed_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    return FAISS.from_texts(all_chunks, embedding=embed_model)

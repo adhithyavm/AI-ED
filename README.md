@@ -123,3 +123,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ---
 
 **Built with ❤️ for the CIT Datathon**
+
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+

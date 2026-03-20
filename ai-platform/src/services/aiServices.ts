@@ -4,7 +4,7 @@ export const synthesizeObservation = async (studentName: string, file: File) => 
   formData.append('file', file);
 
   try {
-    const response = await fetch('http://localhost:8000/process-rag', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/process-rag`, {
       method: 'POST',
       body: formData,
     });
@@ -19,7 +19,7 @@ export const synthesizeObservation = async (studentName: string, file: File) => 
 
 export const askChatbot = async (studentName: string, message: string) => {
   try {
-    const response = await fetch('http://localhost:8000/chat', {
+    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ student_name: studentName, message: message }),
